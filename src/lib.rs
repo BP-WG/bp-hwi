@@ -39,7 +39,7 @@ impl std::fmt::Display for Error {
 }
 
 /// HWI is the common Hardware Wallet Interface.
-#[async_trait(?Send)]
+#[async_trait]
 pub trait HWI: Debug {
     /// Return the device kind
     fn device_kind(&self) -> DeviceKind;

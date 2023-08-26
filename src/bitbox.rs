@@ -39,7 +39,7 @@ impl BitBox {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl HWI for BitBox {
     fn device_kind(&self) -> DeviceKind {
         DeviceKind::BitBox
@@ -54,14 +54,12 @@ impl HWI for BitBox {
     }
 
     async fn get_master_fingerprint(&self) -> Result<Fingerprint, HWIError> {
-        let fg = self.client
+        let fg = self
+            .client
             .root_fingerprint()
             .await
             .map_err(|e| HWIError::Device(e.to_string()))?;
-
-Fingerprint::from_str(&s)
-            .then(|s| )
-            .map_err(|e| HWIError::Device(e.to_string()))
+        Ok(fg)
     }
 
     async fn get_extended_pubkey(&self, path: &DerivationPath) -> Result<ExtendedPubKey, HWIError> {

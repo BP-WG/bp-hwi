@@ -77,7 +77,7 @@ impl<T: 'static + Transport + Sync + Send> From<Ledger<T>> for Box<dyn HWI + Sen
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl<T: Transport + Sync + Send> HWI for Ledger<T> {
     fn device_kind(&self) -> DeviceKind {
         self.kind

@@ -79,7 +79,7 @@ impl<T: Transport> Specter<T> {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl<T: Transport + Sync + Send> HWI for Specter<T> {
     fn device_kind(&self) -> DeviceKind {
         self.kind
