@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 pub struct BitBox {
     pub network: bitcoin::Network,
-    pub client: PairedBitBox<TokioRuntime>,
+    pub client: PairedBitBox<TokioRuntime, bitbox_api::usb::Transport>,
 }
 
 impl std::fmt::Debug for BitBox {
@@ -21,7 +21,10 @@ impl std::fmt::Debug for BitBox {
 impl BitBox {
     pub async fn connect() -> Result<Self, Error> {
         let noise_config = Box::new(bitbox_api::NoiseConfigNoCache {});
-        let bitbox = bitbox_api::BitBox::<bitbox_api::runtime::TokioRuntime>::from(
+        let bitbox = bitbox_api::BitBox::<
+            bitbox_api::runtime::TokioRuntime,
+            bitbox_api::usb::Transport,
+        >::from(
             bitbox_api::usb::get_any_bitbox02().unwrap(),
             noise_config,
         )
@@ -59,7 +62,7 @@ impl HWI for BitBox {
             .root_fingerprint()
             .await
             .map_err(|e| HWIError::Device(e.to_string()))?;
-        Ok(fg)
+        Ok(Fingerprint::from_str(&fg).map_err(|e| HWIError::Device(e.to_string()))?)
     }
 
     async fn get_extended_pubkey(&self, path: &DerivationPath) -> Result<ExtendedPubKey, HWIError> {

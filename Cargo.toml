@@ -28,7 +28,7 @@ tokio-serial = { version = "5.4.1", optional = true }
 serialport = { version = "4.2", optional = true }
 
 #bitbox
-bitbox-api = { git = "https://github.com/digitalbitbox/bitbox-api-rs", features = ["usb", "tokio"], optional = true }
+bitbox-api = { git = "https://github.com/edouardparis/bitbox-api-rs", branch = "add-transport-implementing-Send-to-usb", features = ["usb", "tokio", "enforce-send"], optional = true }
 
 #bitbox & ledger
 hidapi = { version = "2.4.1", features = ["linux-static-hidraw"], default-features = false, optional = true }
