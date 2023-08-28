@@ -17,6 +17,7 @@ use std::fmt::Debug;
 pub enum Error {
     UnsupportedVersion,
     UnsupportedInput,
+    InvalidParameter(&'static str, String),
     UnimplementedMethod,
     DeviceDisconnected,
     DeviceNotFound,
@@ -34,6 +35,7 @@ impl std::fmt::Display for Error {
             Error::DeviceNotFound => write!(f, "Device not found"),
             Error::DeviceDidNotSign => write!(f, "Device did not sign"),
             Error::Device(e) => write!(f, "{}", e),
+            Error::InvalidParameter(param, e) => write!(f, "Invalid parameter {}: {}", param, e),
         }
     }
 }
