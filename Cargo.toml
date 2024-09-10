@@ -9,8 +9,8 @@ repository = "https://github.com/wizardsardine/async-hwi"
 keywords = ["bitcoin"]
 
 [package]
-name = "async-hwi"
-version = "0.0.23"
+name = "bp-hwi"
+version = "0.11.0"
 readme = "README.md"
 description = "Async hardware wallet interface"
 license-file.workspace = true
@@ -20,20 +20,17 @@ repository.workspace = true
 
 [features]
 default = ["ledger", "specter", "coldcard", "bitbox", "jade"]
-bitbox = ["tokio", "hidapi", "bitbox-api", "regex"]
+bitbox = ["hidapi", "bitbox-api", "regex"]
 coldcard = ["dep:coldcard", "regex"]
-specter = ["tokio", "tokio-serial", "serialport"]
-jade = ["tokio", "tokio-serial", "serde", "serde_bytes", "serde_cbor", "serialport", "reqwest"]
-ledger = ["regex", "tokio", "ledger_bitcoin_client", "ledger-transport-hidapi", "ledger-apdu", "hidapi"]
+specter = ["serialport"]
+jade = ["serde", "serde_bytes", "serde_cbor", "serialport", "reqwest"]
+ledger = ["regex", "ledger_bitcoin_client", "ledger-transport-hidapi", "ledger-apdu", "hidapi"]
 regex = ["dep:regex"]
 
 [dependencies]
-async-trait = "0.1.52"
-futures = "0.3"
 bitcoin = { version = "0.31", default-features = false, features = ["base64", "serde", "std"] }
 
 # specter & jade
-tokio-serial = { version = "5.4.1", optional = true }
 serialport = { version = "4.3", optional = true }
 
 # jade
@@ -43,7 +40,7 @@ serde_cbor = { version = "0.11", optional = true }
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] , optional = true}
 
 # bitbox
-bitbox-api = { version = "0.2.3", default-features = false, features = ["usb", "tokio", "multithreaded"], optional = true }
+bitbox-api = { version = "0.2.3", default-features = false, features = ["usb", "multithreaded"], optional = true }
 
 # coldcard
 coldcard = { version = "0.12.2", optional = true }
@@ -56,9 +53,3 @@ ledger-transport-hidapi = { version = "0.10.0", optional = true }
 # bitbox & ledger
 hidapi = { version = "2.5.1", features = ["linux-static-hidraw"], default-features = false, optional = true }
 regex = { version = "1.6.0", optional = true }
-
-# jade & specter & ledger & bitbox
-tokio = { version = "1.21.0", features = ["net", "time", "io-util", "sync", "macros"], optional = true }
-
-[dev-dependencies]
-tokio = { version = "1.21", features = ["macros", "net", "rt", "rt-multi-thread", "io-util", "sync"] }
