@@ -77,8 +77,8 @@ impl<'a> Bip32DerivationFilter<'a> {
     }
 
     /// Signs the psbt with the HWI interface and puts back the ignored bip32 derivations
-    pub async fn sign_psbt<T: HWI>(mut self, device: &T) -> Result<(), Error> {
-        device.sign_tx(self.psbt).await?;
+    pub fn sign_psbt<T: HWI>(mut self, device: &T) -> Result<(), Error> {
+        device.sign_tx(self.psbt)?;
 
         for (i, input) in self.psbt.inputs.iter_mut().enumerate() {
             input

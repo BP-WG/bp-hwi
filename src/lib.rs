@@ -11,7 +11,6 @@ pub mod ledger;
 pub mod specter;
 pub mod utils;
 
-use async_trait::async_trait;
 use bitcoin::{
     bip32::{DerivationPath, Fingerprint, Xpub},
     psbt::Psbt,
@@ -65,24 +64,23 @@ impl From<bip389::ParseError> for Error {
 impl std::error::Error for Error {}
 
 /// HWI is the common Hardware Wallet Interface.
-#[async_trait]
 pub trait HWI: Debug {
     /// Return the device kind
     fn device_kind(&self) -> DeviceKind;
     /// Application version or OS version.
-    async fn get_version(&self) -> Result<Version, Error>;
+    fn get_version(&self) -> Result<Version, Error>;
     /// Get master fingerprint.
-    async fn get_master_fingerprint(&self) -> Result<Fingerprint, Error>;
+    fn get_master_fingerprint(&self) -> Result<Fingerprint, Error>;
     /// Get the xpub with the given derivation path.
-    async fn get_extended_pubkey(&self, path: &DerivationPath) -> Result<Xpub, Error>;
+    fn get_extended_pubkey(&self, path: &DerivationPath) -> Result<Xpub, Error>;
     /// Register a new wallet policy.
-    async fn register_wallet(&self, name: &str, policy: &str) -> Result<Option<[u8; 32]>, Error>;
+    fn register_wallet(&self, name: &str, policy: &str) -> Result<Option<[u8; 32]>, Error>;
     /// Returns true if the wallet is registered on the device.
-    async fn is_wallet_registered(&self, name: &str, policy: &str) -> Result<bool, Error>;
+    fn is_wallet_registered(&self, name: &str, policy: &str) -> Result<bool, Error>;
     /// Display address on the device screen.
-    async fn display_address(&self, script: &AddressScript) -> Result<(), Error>;
+    fn display_address(&self, script: &AddressScript) -> Result<(), Error>;
     /// Sign a partially signed bitcoin transaction (PSBT).
-    async fn sign_tx(&self, tx: &mut Psbt) -> Result<(), Error>;
+    fn sign_tx(&self, tx: &mut Psbt) -> Result<(), Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

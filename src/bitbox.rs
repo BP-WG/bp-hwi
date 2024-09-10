@@ -170,7 +170,7 @@ impl<T: Runtime + Sync + Send> HWI for BitBox02<T> {
         DeviceKind::BitBox02
     }
 
-    async fn get_version(&self) -> Result<super::Version, HWIError> {
+    fn get_version(&self) -> Result<super::Version, HWIError> {
         let info = self
             .client
             .device_info()

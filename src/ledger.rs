@@ -1,9 +1,9 @@
 use std::convert::TryFrom;
 use std::default::Default;
 use std::error::Error;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::io::{Read, Write};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 
-use async_trait::async_trait;
 use bitcoin::{
     bip32::{ChildNumber, DerivationPath, Fingerprint, Xpub},
     psbt::Psbt,
@@ -12,15 +12,10 @@ use ledger_bitcoin_client::psbt::PartialSignature;
 
 use ledger_apdu::APDUAnswer;
 use ledger_transport_hidapi::TransportNativeHID;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
-    sync::Mutex,
-};
 
 use ledger_bitcoin_client::{
     apdu::{APDUCommand, StatusWord},
-    async_client::BitcoinClient,
+    client::BitcoinClient,
     error::BitcoinClientError,
     wallet::Version as WalletVersion,
     WalletPolicy, WalletPubKey,
@@ -29,7 +24,7 @@ use ledger_bitcoin_client::{
 use crate::{parse_version, utils, AddressScript, DeviceKind, Error as HWIError, HWI};
 
 pub use hidapi::{DeviceInfo, HidApi};
-pub use ledger_bitcoin_client::async_client::Transport;
+pub use ledger_bitcoin_client::client::Transport;
 
 #[derive(Default)]
 struct CommandOptions {
@@ -75,36 +70,35 @@ impl<T: 'static + Transport + Sync + Send> From<Ledger<T>> for Box<dyn HWI + Sen
     }
 }
 
-#[async_trait]
 impl<T: Transport + Sync + Send> HWI for Ledger<T> {
     fn device_kind(&self) -> DeviceKind {
         self.kind
     }
 
-    async fn get_version(&self) -> Result<super::Version, HWIError> {
-        let (_, version, _) = self.client.get_version().await?;
+    fn get_version(&self) -> Result<super::Version, HWIError> {
+        let (_, version, _) = self.client.get_version()?;
         Ok(parse_version(&version)?)
     }
 
-    async fn get_master_fingerprint(&self) -> Result<Fingerprint, HWIError> {
-        Ok(self.client.get_master_fingerprint().await?)
+    fn get_master_fingerprint(&self) -> Result<Fingerprint, HWIError> {
+        Ok(self.client.get_master_fingerprint()?)
     }
 
-    async fn get_extended_pubkey(&self, path: &DerivationPath) -> Result<Xpub, HWIError> {
+    fn get_extended_pubkey(&self, path: &DerivationPath) -> Result<Xpub, HWIError> {
         Ok(self
             .client
             .get_extended_pubkey(path, self.options.display_xpub)
-            .await?)
+            ?)
     }
 
-    async fn display_address(&self, script: &AddressScript) -> Result<(), HWIError> {
+    fn display_address(&self, script: &AddressScript) -> Result<(), HWIError> {
         match script {
             AddressScript::P2TR(path) => {
                 let children = utils::bip86_path_child_numbers(path.clone())?;
                 let (hardened_children, normal_children) = children.split_at(3);
                 let path = DerivationPath::from(hardened_children);
-                let fg = self.get_master_fingerprint().await?;
-                let xpub = self.get_extended_pubkey(&path).await?;
+                let fg = self.get_master_fingerprint()?;
+                let xpub = self.get_extended_pubkey(&path)?;
                 let policy = format!(
                     "tr([{}{}]{}/**)",
                     fg,
@@ -123,8 +117,7 @@ impl<T: Transport + Sync + Send> HWI for Ledger<T> {
                         normal_children[0] == ChildNumber::from_normal_idx(0).unwrap(),
                         normal_children[1].into(),
                         true,
-                    )
-                    .await?;
+                    )?;
             }
             AddressScript::Miniscript { index, change } => {
                 let (policy, hmac) = &self
@@ -133,14 +126,13 @@ impl<T: Transport + Sync + Send> HWI for Ledger<T> {
                     .as_ref()
                     .ok_or_else(|| HWIError::MissingPolicy)?;
                 self.client
-                    .get_wallet_address(policy, hmac.as_ref(), *change, *index, true)
-                    .await?;
+                    .get_wallet_address(policy, hmac.as_ref(), *change, *index, true)?;
             }
         }
         Ok(())
     }
 
-    async fn register_wallet(
+    fn register_wallet(
         &self,
         name: &str,
         policy: &str,
@@ -152,11 +144,11 @@ impl<T: Transport + Sync + Send> HWI for Ledger<T> {
             descriptor_template,
             keys,
         );
-        let (_id, hmac) = self.client.register_wallet(&wallet).await?;
+        let (_id, hmac) = self.client.register_wallet(&wallet)?;
         Ok(Some(hmac))
     }
 
-    async fn is_wallet_registered(&self, name: &str, policy: &str) -> Result<bool, HWIError> {
+    fn is_wallet_registered(&self, name: &str, policy: &str) -> Result<bool, HWIError> {
         if let Some((wallet, hmac)) = &self.options.wallet {
             let (descriptor_template, keys) =
                 utils::extract_keys_and_template::<WalletPubKey>(policy)?;
@@ -169,9 +161,9 @@ impl<T: Transport + Sync + Send> HWI for Ledger<T> {
         }
     }
 
-    async fn sign_tx(&self, psbt: &mut Psbt) -> Result<(), HWIError> {
+    fn sign_tx(&self, psbt: &mut Psbt) -> Result<(), HWIError> {
         if let Some((policy, hmac)) = &self.options.wallet {
-            let sigs = self.client.sign_psbt(psbt, policy, hmac.as_ref()).await?;
+            let sigs = self.client.sign_psbt(psbt, policy, hmac.as_ref())?;
             for (i, sig) in sigs {
                 let input = psbt.inputs.get_mut(i).ok_or(HWIError::DeviceDidNotSign)?;
                 match sig {
@@ -223,10 +215,9 @@ impl Ledger<TransportHID> {
 /// Transport with the Ledger device.
 pub struct TransportHID(TransportNativeHID);
 
-#[async_trait]
 impl Transport for TransportHID {
     type Error = Box<dyn Error>;
-    async fn exchange(&self, cmd: &APDUCommand) -> Result<(StatusWord, Vec<u8>), Self::Error> {
+    fn exchange(&self, cmd: &APDUCommand) -> Result<(StatusWord, Vec<u8>), Self::Error> {
         self.0
             .exchange(&ledger_apdu::APDUCommand {
                 ins: cmd.ins,
@@ -262,39 +253,38 @@ impl LedgerSimulator {
 
 /// Transport to communicate with the Ledger Speculos simulator.
 pub struct TransportTcp {
-    connection: Mutex<TcpStream>,
+    connection: TcpStream,
 }
 
 impl TransportTcp {
     pub async fn new() -> Result<Self, Box<dyn Error>> {
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9999);
-        let stream = TcpStream::connect(addr).await?;
+        let stream = TcpStream::connect(addr)?;
         Ok(Self {
-            connection: Mutex::new(stream),
+            connection: stream,
         })
     }
 }
 
-#[async_trait]
 impl Transport for TransportTcp {
     type Error = Box<dyn Error>;
-    async fn exchange(&self, command: &APDUCommand) -> Result<(StatusWord, Vec<u8>), Self::Error> {
-        let mut stream = self.connection.lock().await;
+    fn exchange(&self, command: &APDUCommand) -> Result<(StatusWord, Vec<u8>), Self::Error> {
+        let mut stream = &self.connection;
         let command_bytes = command.encode();
 
         let mut req = vec![0u8; command_bytes.len() + 4];
         req[..4].copy_from_slice(&(command_bytes.len() as u32).to_be_bytes());
         req[4..].copy_from_slice(&command_bytes);
-        stream.write_all(&req).await?;
+        stream.write_all(&req)?;
 
         let mut buff = [0u8; 4];
-        let len = match stream.read(&mut buff).await? {
+        let len = match stream.read(&mut buff)? {
             4 => u32::from_be_bytes(buff),
             _ => return Err("Invalid Length".into()),
         };
 
         let mut resp = vec![0u8; len as usize + 2];
-        stream.read_exact(&mut resp).await?;
+        stream.read_exact(&mut resp)?;
         let answer = APDUAnswer::from_answer(resp).map_err(|_| "Invalid Answer")?;
         Ok((
             StatusWord::try_from(answer.retcode()).unwrap_or(StatusWord::Unknown),
